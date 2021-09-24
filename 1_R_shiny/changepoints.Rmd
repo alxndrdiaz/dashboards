@@ -1,12 +1,16 @@
 ---
 title: "changepoints"
-author: "alxndrdiaz"
+author: ""
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
     social: menu
     source_code: embed
     vertical_layout: scroll
+    navbar:
+      - { icon: "fa-twitter", href: "https://twitter.com/zaidrdnxla", align: right }
+      - { icon: "fa-github", href: "https://github.com/alxndrdiaz", align: right }
+      - { icon: "fa-linkedin", href: "https://www.linkedin.com/in/alexander-ramos-d%C3%ADaz-3063891aa", align: right }
     theme: 
       version: 4
       bootswatch: cosmo
@@ -15,7 +19,9 @@ runtime: shiny
 
 ```{r setup, include=FALSE}
 
+
 # libraries
+suppressPackageStartupMessages({
 library(flexdashboard)
 library(knitr)
 library(shiny) 
@@ -27,7 +33,7 @@ library(plotly)
 library(tsbox)
 library(scales)
 library(smooth)
-# bslib::bs_themer() <- uncomment to check other themes, requires bslib installed
+})
 
 
 # functions to process and visualize time series and changepoints
@@ -359,8 +365,7 @@ output$simplot <- renderPlotly(
 
 ```  
 
-Column
------------------------------------------------------------------------
+
 ### Algorithm, parameters, and results 
 ```{r}
 
@@ -409,8 +414,6 @@ add_annotations( x=as.numeric(nile_arrows$bx), ax=as.numeric(nile_arrows$ax),
 ```  
 
 
-Column
------------------------------------------------------------------------
 ### Algorithm, parameters, and results 
 ```{r}
 
@@ -456,8 +459,6 @@ add_segments(x=as.numeric(yahoo_dates), xend=as.numeric(yahoo_dates),
 ```  
 
 
-Column
------------------------------------------------------------------------
 ### Algorithm, parameters, and results 
 ```{r}
 
