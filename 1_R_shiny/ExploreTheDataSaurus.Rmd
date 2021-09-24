@@ -1,0 +1,346 @@
+---
+title: "ExploreTheDataSaurus"
+author: ""
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    source_code: embed
+    vertical_layout: scroll
+    navbar:
+      - { icon: "fa-twitter", href: "https://twitter.com/zaidrdnxla", align: right }
+      - { icon: "fa-github", href: "https://github.com/alxndrdiaz", align: right }
+      - { icon: "fa-linkedin", href: "https://www.linkedin.com/in/alexander-ramos-d%C3%ADaz-3063891aa", align: right }
+    theme: 
+      version: 4
+      bootswatch: lumen
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# libraries 
+suppressPackageStartupMessages({
+library(shiny)
+library(flexdashboard)  
+library(ggplot2)  
+library(viridis)
+library(RColorBrewer)
+library(plotly)  
+library(dplyr)
+library(tidyr)
+library(datasauRus) 
+})
+
+
+# tables 
+## 1. summary statistics datasaurus dozen dataset
+datasaurus_dozen2 <- datasaurus_dozen
+datasaurus_dozen2$dataset <- factor(datasaurus_dozen2$dataset, 
+                                    levels = c("dino","away","h_lines","v_lines", "x_shape", "star", "high_lines","dots","circle","bullseye","slant_up","slant_down","wide_lines") )
+saurus_summary <- datasaurus_dozen2 %>% 
+  group_by(dataset) %>% 
+  summarise(mean_x=mean(x), mean_y=mean(y), sd_x=sd(x), sd_y=sd(y), Pearson_xy=cor(x,y, method="pearson") )
+saurus_summary <- gather(saurus_summary, statistic, value, mean_x:Pearson_xy)
+saurus_summary$statistic <- factor(saurus_summary$statistic, levels = c("mean_x","mean_y","sd_x","sd_y", "Pearson_xy"))
+## 2. non-parametric summary statistics ("Twelve From Slant Alternate (long) data")
+nonparametric_summary <- twelve_from_slant_alternate_long %>% 
+  group_by(dataset) %>% 
+  summarise(median_x=median(x), median_y=median(y), IQR_x=IQR(x), IQR_y=IQR(y), Spearman_xy=cor(x,y, method="spearman") )
+nonparametric_summary <- gather(nonparametric_summary, statistic, value, median_x:Spearman_xy)
+nonparametric_summary$statistic <- factor(nonparametric_summary$statistic, levels = c("median_x","median_y","IQR_x","IQR_y", "Spearman_xy"))
+## 3. box_plots dataset summary
+bplots_summ <- gather(box_plots, dataset, x, left:split)
+bplots_summ2 <- bplots_summ %>%
+  group_by(dataset) %>%
+  summarise(mean_x=mean(x), sd_x=sd(x))
+bplots_summ2 <- pivot_longer(bplots_summ2, cols = c("mean_x","sd_x"), names_to = "statistic")
+## 4. simpson's paradox correlations dataset 1 and 2 
+simsummary <- simpsons_paradox %>%
+              group_by(dataset) %>%
+              summarise(Spearman = cor(x,y, method = "spearman"), Pearson = cor(x,y, method = "pearson"))
+simsummary <- pivot_longer(simsummary, cols = c("Spearman","Pearson"), names_to = "correlation")
+## 5. simpson's paradox dataset 2, clustered using k-means
+simpson2 <- simpsons_paradox %>%
+            filter(dataset=="simpson_2") 
+s2_kmeans <- kmeans(simpson2[,c("x","y")], centers = 5)
+simpson2$cluster <- factor(as.character(s2_kmeans$cluster), 
+                           levels=c("1","2","3","4","5"))
+## 6. simpson's paradox dataset 2 correlations
+simpson2_corr <- simpson2 %>%
+  group_by(cluster) %>%
+  summarise(Spearman = cor(x,y,method="spearman"), Pearson=cor(x,y,method ="pearson"))
+simpson2_corr <- pivot_longer(simpson2_corr, 
+                              cols = c("Spearman","Pearson"), names_to="correlation")
+
+
+# plots 
+## 1. datatasaurus dozen 
+dsplot1 <-  ggplot(datasaurus_dozen2, aes(x=x, y=y, colour=dataset)) +
+            geom_point(size=0.75) +
+            theme_minimal() +
+            theme(legend.position = "none") +
+            facet_wrap(~dataset, ncol=4)
+## 2. datasaurus dozen x density
+xdensity_dozen <- ggplot(data = datasaurus_dozen2, aes( x=x, fill=dataset) ) + 
+  geom_density(alpha=0.75) +
+  theme_minimal() + 
+  facet_wrap(facets = "dataset")
+## 2. datasaurus dozen y density
+ydensity_dozen <- ggplot(data = datasaurus_dozen2, aes( x=y, fill=dataset) ) + 
+  geom_density(alpha=0.75) +
+  theme_minimal() + 
+  facet_wrap(facets =  "dataset")
+## 3. datasaurus summary statistics
+saurusum_plot <- ggplot(data = saurus_summary, aes(x=dataset, y=value, fill=dataset) ) + 
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  facet_grid(facets = "statistic", scales = "free_y")
+## 4. Non-parametric statistics plot 1
+npstats_plot1 <- ggplot(twelve_from_slant_alternate_long, aes(x=x, y=y, colour=dataset))+
+  geom_point(size=0.75)+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  facet_wrap(~dataset, ncol=4)
+## 5. Non-parametric statistics plot 2
+npstats_plot2 <- ggplot(data = twelve_from_slant_alternate_long, aes( x=x, fill=dataset)) + 
+  geom_density(alpha=0.75) +
+  theme_minimal() + 
+  facet_wrap(facets =  "dataset", ncol = 4)
+## 6. Non-parametric statistics plot 3
+npstats_plot3 <- ggplot(data = twelve_from_slant_alternate_long, aes( x=y, fill=dataset)) + 
+  geom_density(alpha=0.75) +
+  theme_minimal() + 
+  facet_wrap(facets =  "dataset", ncol = 4)
+## 7. Non-parametric statistics plot 4
+npstats_plot4 <- ggplot(data = nonparametric_summary, aes(x=dataset, y=value, fill=dataset) ) + 
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  facet_grid(facets = "statistic", scales = "free_y")
+## 8. box_plots dataset  plot 1
+bplots1 <- ggplot(bplots_summ, aes(x=dataset, y=x, fill=dataset)) +
+  geom_boxplot()+
+  theme_bw()
+## 9. box_plots dataset  plot 2
+bplots2 <- ggplot(data = bplots_summ, aes( x=x, fill=dataset) ) + 
+  geom_histogram(alpha=0.75) +
+  theme_minimal() + 
+  facet_wrap(facets =  "dataset")
+## 10. box_plots dataset  plot 3 (parametric statistics)
+bplots3 <- ggplot(data = bplots_summ2, aes(x=dataset, y=value, fill=dataset) ) + 
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  facet_grid(facets = "statistic", scales = "free_y")
+## 11. box_plots dataset  plot 1
+simpson_plot1 <- ggplot(simpsons_paradox, aes(x=x, y=y, color=dataset))+
+  geom_point()+
+  theme_minimal()+
+  theme(legend.position = "none") +
+  facet_wrap(~dataset, ncol=3)
+## 12. simpson's paradox  plot 1
+simp1 <- ggplot(simpsons_paradox, aes(x=x, y=y, color=dataset))+
+  geom_point()+
+  theme(legend.position = "none") +
+  theme_minimal()+
+  facet_wrap(~dataset, ncol=3)
+## 13. simpson's paradox  plot 2
+simp2 <- ggplot(simsummary, aes(x=dataset, y=value, fill=correlation)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  theme_minimal() +
+  scale_fill_viridis_d(option = "plasma")
+## 14. simpson's paradox  plot 3
+simp3 <- ggplot(simpson2, aes(x=x,y=y, color=cluster)) + 
+  geom_point(size=2.0) + 
+  theme_minimal() + 
+  scale_color_brewer(palette = "Set1")
+## 15. simpson's paradox  plot 4
+simp4 <- ggplot(simpson2_corr, aes(x=cluster, y=value, fill=correlation)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  theme_minimal() +
+  scale_fill_viridis_d(option = "plasma")
+
+
+
+```
+
+
+Datasaurus dozen
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+**Datasaurus dozen**
+
+Datasaurus Dozen datasets show that datasets with identical summary statistics can have very different distributions. It was published in the paper [Justin Matejka and George Fitzmaurice. Same Stats, Different Graphs: Generating Datasets with Varied Appearance and Identical Statistics through Simulated Annealing (2017)](https://dl.acm.org/doi/10.1145/3025453.3025912) , the authors also released their [code along a brief discussion of their method](https://www.autodesk.com/research/publications/same-stats-different-graphs). 
+
+Here I used the [datasauRus R library by Steph Locke  and Lucy D'Agostino McGowan](https://itsalocke.com/datasaurus/) to show some of the results in the original paper. Below you can find the first example in which an intial dataset *dino* can be transformed into twelve other datasets with different distributions. Despite these distributions look different (Figures 1, 2, and 3), they preserve the following summary statistics: *x* & *y* mean, *x* & *y* standard deviation, and *xy* Pearson correlation to two decimal places (means = 54.26, 47.83 ; standard deviations = 16.76, 26.93; Pearson correlation = -0.06 ), see Figure 4.    
+
+
+### Figure 1. Datasaurus datasets.
+```{r, echo=FALSE}
+
+ggplotly(dsplot1) 
+
+```
+
+### Figure 2. Datasaurus dozen *x* density.
+```{r  echo=FALSE}
+
+ggplotly(xdensity_dozen) 
+
+```
+
+### Figure 3. Datasaurus dozen *y* density.
+
+```{r, echo=FALSE}
+
+ggplotly(ydensity_dozen) 
+
+```
+
+### Figure 4. Datasaurus datasets preserved summary statistics.
+
+```{r, echo=FALSE}
+
+ggplotly(saurusum_plot) 
+
+```
+
+
+Non-parametric statistics 
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+**Non-parametric statistics**
+
+In this example there are 12 datasets with different distributions (Figures 5, 6, and 7) preserving the following non-parametric summary statistics: *x* & *y* median, *x* & *y* inter-quartile range (IQR), and *xy* Spearman correlation to two decimal places (medians = 53.73, 46.21 ; IQRs = 19.17, 37.92; Spearman correlation = +0.31 ) shown in Figure 8. The initial dataset used to generate these datasets is described in the paper.      
+
+### Figure 5. Datasets with equal non-parametric statistics.
+
+```{r, echo=FALSE}
+
+ggplotly(npstats_plot1) 
+
+```
+
+### Figure 6. Datasets *x* density.
+
+```{r, echo=FALSE}
+
+ggplotly(npstats_plot2) 
+
+```
+
+### Figure 7. Datasets *y* density.
+
+```{r, echo=FALSE}
+
+ggplotly(npstats_plot3) 
+
+```
+
+### Figure 8. Preserved non-parametric summary statistics.
+
+```{r, echo=FALSE}
+
+ggplotly(npstats_plot4) 
+
+```
+
+
+Box plots
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+**Box plots**
+
+The box plots shown in Figure 9 are identical: first, second (median), and third quartiles as well as the locations of *1.5 IQR* &nbsp; from the first and third quartiles are equal. However, distributions are different as you can see in Figure 10. In this case summary statistics are also different (see Figure 11)
+
+### Figure 9. Box plots with equal quartiles.
+
+```{r, echo=FALSE}
+
+ggplotly(bplots1) 
+
+```
+
+### Figure 10. Histograms for each boxplot. 
+
+```{r, echo=FALSE}
+
+ggplotly(bplots2) 
+
+```
+
+### Figure 11. Box plots' summary statistics (mean and standard deviation, sd).
+
+```{r, echo=FALSE}
+
+ggplotly(bplots3) 
+
+```
+
+
+Simpson's paradox
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+**Simpson's paradox**
+
+Simpson's paradox "is a phenomenon in probability and statistics in which a trend appears in several groups of data but disappears or reverses when the groups are combined" [from Wikipedia](https://en.wikipedia.org/wiki/Simpson%27s_paradox). In this specific example the authors generated two datasets (*simpson_1* &nbsp; and &nbsp; *simpson_2* &nbsp;) shown in Figure 12. The second dataset was deliberately divided into five groups with negative slopes. When you compute the Pearson correlation between all data points in each dataset the result is the same: *+0.81*. Here we also computed Spearman correlation observing the same trend, see Figure 13.
+
+However if you consider each of the groups in the second dataset (Figure 14) the correlation reverses to negative values (Figure 15). Because the groups of data points in *simpson_2* &nbsp; dataset are not labeled, we used a [k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) to define the groups. As you might observe this algorithm does not always cluster the data points into the five true groups, sometimes it splits a true group in two or merges two true groups. If the latter happens the paradox seems to hold for the two merged true groups (positive correlation within the merged cluster). This is quite interesting so it is left here as a nice example of this paradox.
+
+
+
+### Figure 12. Simpson's paradox datasets.
+
+```{r, echo=FALSE}
+
+ggplotly(simp1) 
+
+```
+
+
+### Figure 13. Simpson's paradox, correlations for each dataset.
+
+```{r, echo=FALSE}
+
+ggplotly(simp2) 
+
+```
+
+### Figure 14. Simpson's paradox, *simpson_2* &nbsp; dataset k-means clustering (centers = 5).
+
+```{r, echo=FALSE}
+
+ggplotly(simp3) 
+
+```
+
+
+### Figrue 15. Simpson's paradox, *simpson_2* &nbsp; dataset correlations for each k-means cluster.
+
+```{r, echo=FALSE}
+
+ggplotly(simp4) 
+
+```
+
