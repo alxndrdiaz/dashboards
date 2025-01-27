@@ -1,5 +1,5 @@
 # dashboards
-Dahsboards on various topics written in R and Python (to be updated soon).
+Dahsboards on various topics written in R and Python.
 
 
 ## 1. R shiny
